@@ -25,12 +25,6 @@ class RateLimiter
     private $logger = null;
 
     /**
-     * 
-     * @var string|null
-     */
-    public $ip = null;
-
-    /**
      * Set a function to be called when the limit is reached and the next log attempts will fail the specified limit.
      * It there is a limit of 5/m, the logger will be called on the 4th log attempt that will also return TRUE. The next one will return FALSE and the logger will not be called.
      * 
@@ -40,18 +34,6 @@ class RateLimiter
     public function setLogger(callable $logger): self
     {
         $this->logger = $logger;
-        return $this;
-    }
-
-    /**
-     * Sets the IP to be used when logIP() is called
-     * 
-     * @param string $ip
-     * @return self
-     */
-    public function setIP(string $ip): self
-    {
-        $this->ip = $ip;
         return $this;
     }
 
@@ -150,13 +132,10 @@ class RateLimiter
      */
     public function logIP(string $action, array $limits): bool
     {
-        if ($this->ip === null) {
-            if (!isset($_SERVER['REMOTE_ADDR'])) {
-                throw new \Exception('Cannot find ip');
-            }
-            $ip = $_SERVER['REMOTE_ADDR'];
-        } else {
-            $ip = $this->ip;
+        $app = App::get();
+        $ip = $app->request->client->ip;
+        if ($ip === null) {
+            throw new \Exception('Cannot find client IP!');
         }
         return $this->log($action, 'ip-' . $ip, $limits);
     }
