@@ -18,7 +18,7 @@ class RateLimiter
 {
 
     /**
-     * Format: function(string $key, string $limit){}
+     * Format: function(string $key, string $limit, $data){}
      * 
      * @var null|callable 
      */
@@ -34,7 +34,7 @@ class RateLimiter
      * Set a function to be called when the limit is reached and the next log attempts will fail the specified limit.
      * It there is a limit of 5/m, the logger will be called on the 4th log attempt that will also return TRUE. The next one will return FALSE and the logger will not be called.
      * 
-     * @param callable $logger
+     * @param callable $logger Format: function(string $key, string $limit, $data){}
      * @return self
      */
     public function setLogger(callable $logger): self
@@ -60,9 +60,10 @@ class RateLimiter
      * 
      * @param string $key The action key.
      * @param array $limits The limiting rates. Format: ['10/s', '10/m', '10/h', '10/d'] for second, minute, hour and day.
+     * @param mixed $loggerData
      * @return boolean Returns FALSE if one of the limits is reached.
      */
-    public function log(string $key, array $limits): bool
+    public function log(string $key, array $limits, $loggerData = null): bool
     {
         $currentTime = time();
         $keyHash = base_convert(substr(md5($key), 0, 10), 16, 32);
@@ -105,7 +106,7 @@ class RateLimiter
                     } elseif ($limitType === 'm') {
                         $minLimitTime = $currentTime - 60;
                     } elseif ($limitType === 'h') {
-                        $minLimitTime = $currentTime - 360;
+                        $minLimitTime = $currentTime - 3600;
                     } elseif ($limitType === 'd') {
                         $minLimitTime = $minItemsTime;
                     } else {
@@ -115,14 +116,14 @@ class RateLimiter
                         return $time >= $minLimitTime;
                     });
                     $matchedTimesCount = sizeof($matchedTimes);
+                    if ($matchedTimesCount + 1 === $limitValue) {
+                        if (is_callable($this->logger)) {
+                            call_user_func($this->logger, $key, $limit, $loggerData);
+                        }
+                    }
                     if ($matchedTimesCount >= $limitValue) {
                         $addKey = false;
                         break;
-                    }
-                    if ($matchedTimesCount + 1 === $limitValue) {
-                        if (is_callable($this->logger)) {
-                            call_user_func($this->logger, $key, $limit);
-                        }
                     }
                 }
             }
@@ -144,9 +145,10 @@ class RateLimiter
      * Logs current visitor IP and checks if the rate limits specified are reached.
      * 
      * @param array $limits The limiting rates. Format: ['10/s', '10/m', '10/h', '10/d'] for second, minute, hour and day.
+     * @param mixed $loggerData
      * @return boolean Returns FALSE if one of the limits is reached.
      */
-    public function logIP(array $limits): bool
+    public function logIP(array $limits, $loggerData = null): bool
     {
         if ($this->ip === null) {
             if (!isset($_SERVER['REMOTE_ADDR'])) {
@@ -156,7 +158,7 @@ class RateLimiter
         } else {
             $ip = $this->ip;
         }
-        return $this->log('ip-' . $ip, $limits);
+        return $this->log('ip-' . $ip, $limits, $loggerData);
     }
 
     /**
