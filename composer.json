@@ -1,0 +1,31 @@
+{
+    "name": "ivopetkov/rate-limiter-bearframework-addon",
+    "description": "Rate limiter for Bear Framework",
+    "keywords": [
+        "rate limiter",
+        "addon",
+        "Bear Framework"
+    ],
+    "homepage": "https://github.com/ivopetkov/rate-limiter-bearframework-addon",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Ivo Petkov",
+            "email": "ivo@ivopetkov.com",
+            "homepage": "http://ivopetkov.com"
+        }
+    ],
+    "require": {
+        "php": "7.1.*|7.2.*|7.3.*|7.4.*|8.0.*|8.1.*",
+        "ext-openssl": "*",
+        "bearframework/bearframework": "1.*"
+    },
+    "require-dev": {
+        "bearframework/addon-tests": "1.*"
+    },
+    "autoload": {
+        "files": [
+            "autoload.php"
+        ]
+    }
+}
