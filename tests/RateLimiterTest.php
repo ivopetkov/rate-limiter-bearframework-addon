@@ -21,45 +21,48 @@ class RateLimiterTest extends BearFramework\AddonTests\PHPUnitTestCase
         $app = $this->getApp();
 
         $loggerData = null;
-        $app->rateLimiter->setLogger(function (string $key, string $limit) use (&$loggerData) {
-            $loggerData = [$key, $limit];
+        $app->rateLimiter->setLogger(function (string $action, string $key, string $limit) use (&$loggerData) {
+            $loggerData = [$action, $key, $limit];
         });
 
         $app->rateLimiter->reset();
 
+        $action = 'action1';
         $key = 'test1';
         $limit1 = '3/m';
         $limit2 = '4/h';
 
         // OK
-        $this->assertTrue($app->rateLimiter->log($key, [$limit1, $limit2]));
+        $this->assertTrue($app->rateLimiter->log($action, $key, [$limit1, $limit2]));
         $this->assertNull($loggerData);
 
         // OK
-        $this->assertTrue($app->rateLimiter->log($key, [$limit1, $limit2]));
+        $this->assertTrue($app->rateLimiter->log($action, $key, [$limit1, $limit2]));
         $this->assertNull($loggerData);
 
         // OK + Logger for 3/m
-        $this->assertTrue($app->rateLimiter->log($key, [$limit1, $limit2]));
-        $this->assertTrue($loggerData[0] === $key);
-        $this->assertTrue($loggerData[1] === $limit1);
+        $this->assertTrue($app->rateLimiter->log($action, $key, [$limit1, $limit2]));
+        $this->assertTrue($loggerData[0] === $action);
+        $this->assertTrue($loggerData[1] === $key);
+        $this->assertTrue($loggerData[2] === $limit1);
         $loggerData = null;
 
         // FAIL because of 3/m
-        $this->assertFalse($app->rateLimiter->log($key, [$limit1, $limit2]));
+        $this->assertFalse($app->rateLimiter->log($action, $key, [$limit1, $limit2]));
         $this->assertNull($loggerData);
 
         // Wait
         sleep(61);
 
         // OK + Logger for 4/h
-        $this->assertTrue($app->rateLimiter->log($key, [$limit1, $limit2]));
-        $this->assertTrue($loggerData[0] === $key);
-        $this->assertTrue($loggerData[1] === $limit2);
+        $this->assertTrue($app->rateLimiter->log($action, $key, [$limit1, $limit2]));
+        $this->assertTrue($loggerData[0] === $action);
+        $this->assertTrue($loggerData[1] === $key);
+        $this->assertTrue($loggerData[2] === $limit2);
         $loggerData = null;
 
         // FAIL because of 4/h
-        $this->assertFalse($app->rateLimiter->log($key, [$limit1, $limit2]));
+        $this->assertFalse($app->rateLimiter->log($action, $key, [$limit1, $limit2]));
         $this->assertNull($loggerData);
     }
 }

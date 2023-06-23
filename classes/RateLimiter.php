@@ -58,15 +58,15 @@ class RateLimiter
     /**
      * Logs an action and checks if the rate limits specified are reached.
      * 
+     * @param string $action The name of the action
      * @param string $key The action key.
      * @param array $limits The limiting rates. Format: ['10/s', '10/m', '10/h', '10/d'] for second, minute, hour and day.
-     * @param mixed $loggerData
      * @return boolean Returns FALSE if one of the limits is reached.
      */
-    public function log(string $key, array $limits, $loggerData = null): bool
+    public function log(string $action, string $key, array $limits): bool
     {
         $currentTime = time();
-        $keyHash = base_convert(substr(md5($key), 0, 10), 16, 32);
+        $keyHash = base_convert(substr(md5(md5($action) . $key), 0, 10), 16, 32);
         $minItemsTime = $currentTime - 86400; // items older than 1 day are automatically removed 
         $filename = $this->getDataFileName();
         if (is_file($filename)) {
@@ -118,7 +118,7 @@ class RateLimiter
                     $matchedTimesCount = sizeof($matchedTimes);
                     if ($matchedTimesCount + 1 === $limitValue) {
                         if (is_callable($this->logger)) {
-                            call_user_func($this->logger, $key, $limit, $loggerData);
+                            call_user_func($this->logger, $action, $key, $limit);
                         }
                     }
                     if ($matchedTimesCount >= $limitValue) {
@@ -144,11 +144,11 @@ class RateLimiter
     /**
      * Logs current visitor IP and checks if the rate limits specified are reached.
      * 
+     * @param string $action The name of the action
      * @param array $limits The limiting rates. Format: ['10/s', '10/m', '10/h', '10/d'] for second, minute, hour and day.
-     * @param mixed $loggerData
      * @return boolean Returns FALSE if one of the limits is reached.
      */
-    public function logIP(array $limits, $loggerData = null): bool
+    public function logIP(string $action, array $limits): bool
     {
         if ($this->ip === null) {
             if (!isset($_SERVER['REMOTE_ADDR'])) {
@@ -158,7 +158,7 @@ class RateLimiter
         } else {
             $ip = $this->ip;
         }
-        return $this->log('ip-' . $ip, $limits, $loggerData);
+        return $this->log($action, 'ip-' . $ip, $limits);
     }
 
     /**
