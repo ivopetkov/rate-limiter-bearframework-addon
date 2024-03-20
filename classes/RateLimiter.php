@@ -50,7 +50,7 @@ class RateLimiter
         $currentTime = time();
         $keyHash = base_convert(substr(md5(md5($action) . $key), 0, 10), 16, 32);
         $minItemsTime = $currentTime - 86400; // items older than 1 day are automatically removed 
-        $filename = $this->getDataFileName();
+        $filename = $this->getDataFileName($action);
         if (is_file($filename)) {
             $data = include $filename;
         } else {
@@ -117,7 +117,18 @@ class RateLimiter
             $hasChange = true;
         }
         if ($hasChange) {
-            file_put_contents($filename, '<?php ' . "\n" . 'return ' . var_export($data, true) . ';');
+            $tempFilename = $filename . '.' . md5(uniqid(true)) . '.tmp';
+            file_put_contents($tempFilename, '<?php ' . "\n" . 'return ' . var_export($data, true) . ';');
+            try {
+                if (is_file($filename)) {
+                    @unlink($filename);
+                }
+            } catch (\Exception $e) {
+            }
+            try {
+                @rename($tempFilename, $filename);
+            } catch (\Exception $e) {
+            }
             $this->clearFileNameCache($filename);
         }
         return $addKey;
@@ -145,12 +156,28 @@ class RateLimiter
      *
      * @return self
      */
-    public function reset(): self
+    public function reset(string $action = null): self
     {
-        $filename = $this->getDataFileName();
-        if (is_file($filename)) {
-            unlink($filename);
-            $this->clearFileNameCache($filename);
+        if ($action === null) {
+            $dir = sys_get_temp_dir() . '/';
+            $files = scandir($dir);
+            foreach ($files as $filename) {
+                if (strpos($filename, 'ivopetkov-rate-limiter') === 0) {
+                    try {
+                        @unlink($dir . $filename);
+                    } catch (\Exception $e) {
+                    }
+                }
+            }
+        } else {
+            $filename = $this->getDataFileName($action);
+            if (is_file($filename)) {
+                try {
+                    @unlink($filename);
+                } catch (\Exception $e) {
+                }
+                $this->clearFileNameCache($filename);
+            }
         }
         return $this;
     }
@@ -159,9 +186,9 @@ class RateLimiter
      * 
      * @return string
      */
-    private function getDataFileName(): string
+    private function getDataFileName($action): string
     {
-        return sys_get_temp_dir() . '/ivopetkov-rate-limiter.php';
+        return sys_get_temp_dir() . '/ivopetkov-rate-limiter-' . md5($action) . '.php';
     }
 
     /**
