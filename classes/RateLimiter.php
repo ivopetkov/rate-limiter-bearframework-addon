@@ -97,7 +97,7 @@ class RateLimiter
                     $matchedTimes = array_filter($data[$keyHash], function ($time) use ($minLimitTime) {
                         return $time >= $minLimitTime;
                     });
-                    $matchedTimesCount = sizeof($matchedTimes);
+                    $matchedTimesCount = count($matchedTimes);
                     if ($matchedTimesCount + 1 === $limitValue) {
                         if (is_callable($this->logger)) {
                             call_user_func($this->logger, $action, $key, $limit);
@@ -156,7 +156,7 @@ class RateLimiter
      *
      * @return self
      */
-    public function reset(string $action = null): self
+    public function reset(?string $action = null): self
     {
         if ($action === null) {
             $dir = sys_get_temp_dir() . '/';

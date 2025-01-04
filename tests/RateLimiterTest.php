@@ -21,7 +21,7 @@ class RateLimiterTest extends BearFramework\AddonTests\PHPUnitTestCase
         $app = $this->getApp();
 
         $loggerData = null;
-        $app->rateLimiter->setLogger(function (string $action, string $key, string $limit) use (&$loggerData) {
+        $app->rateLimiter->setLogger(function (string $action, string $key, string $limit) use (&$loggerData): void {
             $loggerData = [$action, $key, $limit];
         });
 
