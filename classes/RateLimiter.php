@@ -42,14 +42,14 @@ class RateLimiter
      * 
      * @param string $action The name of the action
      * @param string $key The action key.
-     * @param array $limits The limiting rates. Format: ['10/s', '10/m', '10/h', '10/d'] for second, minute, hour and day.
+     * @param array $limits The limiting rates. Format: ['10/s', '10/m', '10/h', '10/d', '10w', '10/mo'] for second, minute, hour, day, week and month.
      * @return boolean Returns FALSE if one of the limits is reached.
      */
     public function log(string $action, string $key, array $limits): bool
     {
         $currentTime = time();
         $keyHash = base_convert(substr(md5(md5($action) . $key), 0, 10), 16, 32);
-        $minItemsTime = $currentTime - 86400; // items older than 1 day are automatically removed 
+        $minItemsTime = $currentTime - 31 * 86400; // items older than 31 day are automatically removed 
         $filename = $this->getDataFileName($action);
         if (is_file($filename)) {
             $data = include $filename;
@@ -90,7 +90,11 @@ class RateLimiter
                     } elseif ($limitType === 'h') {
                         $minLimitTime = $currentTime - 3600;
                     } elseif ($limitType === 'd') {
-                        $minLimitTime = $minItemsTime;
+                        $minLimitTime = $currentTime - 86400;
+                    } elseif ($limitType === 'w') {
+                        $minLimitTime = $currentTime - 86400 * 7;
+                    } elseif ($limitType === 'mo') {
+                        $minLimitTime = $currentTime - 86400 * 31;
                     } else {
                         throw new \Exception('Invalid limit format (' . $limit . ')!');
                     }
