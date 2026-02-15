@@ -16,7 +16,7 @@ class RateLimiterTest extends BearFramework\AddonTests\PHPUnitTestCase
     /**
      * 
      */
-    public function testRateLimiter()
+    public function testDefaultRateLimit()
     {
         $app = $this->getApp();
 
@@ -64,5 +64,30 @@ class RateLimiterTest extends BearFramework\AddonTests\PHPUnitTestCase
         // FAIL because of 4/h
         $this->assertFalse($app->rateLimiter->log($action, $key, [$limit1, $limit2]));
         $this->assertNull($loggerData);
+    }
+
+    /**
+     * 
+     * @return void
+     */
+    public function testCustomRateLimit()
+    {
+
+        $app = $this->getApp();
+
+        $loggerData = null;
+        $app->rateLimiter->setLogger(function (string $action, string $key, string $limit) use (&$loggerData): void {
+            $loggerData = [$action, $key, $limit];
+        });
+
+        $app->rateLimiter->reset();
+
+        $action = 'action2';
+        $key = 'test1';
+        $limit1 = '1/m';
+        $limit2 = '2/2m';
+
+        // OK
+        $this->assertTrue($app->rateLimiter->log($action, $key, [$limit1, $limit2, '1/d', '1/3d']));
     }
 }

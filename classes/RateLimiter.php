@@ -42,14 +42,45 @@ class RateLimiter
      * 
      * @param string $action The name of the action
      * @param string $key The action key.
-     * @param array $limits The limiting rates. Format: ['10/s', '10/m', '10/h', '10/d', '10w', '10/mo'] for second, minute, hour, day, week and month.
+     * @param array $limits The limiting rates. Format: ['10/s', '10/m', '10/h', '10/d', '10/Xs', '10/Xm', '10/Xh', '10/Xd'] for second, minute, hour and day and custom periods (10/20m for example)
      * @return boolean Returns FALSE if one of the limits is reached.
      */
     public function log(string $action, string $key, array $limits): bool
     {
         $currentTime = time();
         $keyHash = base_convert(substr(md5(md5($action) . $key), 0, 10), 16, 32);
-        $minItemsTime = $currentTime - 31 * 86400; // items older than 31 day are automatically removed 
+        $parsedLimits = [];
+        $parsedMinTime = null;
+        foreach ($limits as $limit) {
+            $limitParts = explode('/', $limit);
+            if (isset($limitParts[0], $limitParts[1]) && is_numeric($limitParts[0])) {
+                $limitValue = (int)$limitParts[0];
+                $limitType = $limitParts[1];
+                if ($limitType === 's') {
+                    $minLimitTime = $currentTime - 1;
+                } elseif ($limitType === 'm') {
+                    $minLimitTime = $currentTime - 60;
+                } elseif ($limitType === 'h') {
+                    $minLimitTime = $currentTime - 3600;
+                } elseif ($limitType === 'd') {
+                    $minLimitTime = $currentTime - 86400;
+                } else if (substr($limitType, -1, 1) === 's') {
+                    $minLimitTime = $currentTime - (int)substr($limitType, 0, -1);
+                } else if (substr($limitType, -1, 1) === 'm') {
+                    $minLimitTime = $currentTime - (int)substr($limitType, 0, -1) * 60;
+                } else if (substr($limitType, -1, 1) === 'h') {
+                    $minLimitTime = $currentTime - (int)substr($limitType, 0, -1) * 3600;
+                } else if (substr($limitType, -1, 1) === 'd') {
+                    $minLimitTime = $currentTime - (int)substr($limitType, 0, -1) * 86400;
+                } else {
+                    throw new \Exception('Invalid limit format (' . $limit . ')!');
+                }
+                $parsedLimits[] = [$limitValue, $limitType, $minLimitTime];
+                if ($parsedMinTime === null || $parsedMinTime > $minLimitTime) {
+                    $parsedMinTime = $minLimitTime;
+                }
+            }
+        }
         $filename = $this->getDataFileName($action);
         if (is_file($filename)) {
             $data = include $filename;
@@ -61,7 +92,7 @@ class RateLimiter
         foreach ($data as $dataKey => $dataTimes) {
             $newTimes = [];
             foreach ($dataTimes as $dataTime) {
-                if ($dataTime >= $minItemsTime) {
+                if ($dataTime >= $parsedMinTime) { // items older than parsed min time are automatically removed 
                     $newTimes[] = $dataTime;
                 } else {
                     $hasChange = true;
@@ -78,39 +109,20 @@ class RateLimiter
 
         $addKey = true;
         if (isset($data[$keyHash])) {
-            foreach ($limits as $limit) {
-                $limitParts = explode('/', $limit);
-                if (isset($limitParts[0], $limitParts[1]) && is_numeric($limitParts[0])) {
-                    $limitValue = (int)$limitParts[0];
-                    $limitType = $limitParts[1];
-                    if ($limitType === 's') {
-                        $minLimitTime = $currentTime - 1;
-                    } elseif ($limitType === 'm') {
-                        $minLimitTime = $currentTime - 60;
-                    } elseif ($limitType === 'h') {
-                        $minLimitTime = $currentTime - 3600;
-                    } elseif ($limitType === 'd') {
-                        $minLimitTime = $currentTime - 86400;
-                    } elseif ($limitType === 'w') {
-                        $minLimitTime = $currentTime - 86400 * 7;
-                    } elseif ($limitType === 'mo') {
-                        $minLimitTime = $currentTime - 86400 * 31;
-                    } else {
-                        throw new \Exception('Invalid limit format (' . $limit . ')!');
+            foreach ($parsedLimits as $parsedLimit) {
+                list($limitValue, $limitType, $minLimitTime) = $parsedLimit;
+                $matchedTimes = array_filter($data[$keyHash], function ($time) use ($minLimitTime) {
+                    return $time >= $minLimitTime;
+                });
+                $matchedTimesCount = count($matchedTimes);
+                if ($matchedTimesCount + 1 === $limitValue) {
+                    if (is_callable($this->logger)) {
+                        call_user_func($this->logger, $action, $key, $limitValue . '/' . $limitType);
                     }
-                    $matchedTimes = array_filter($data[$keyHash], function ($time) use ($minLimitTime) {
-                        return $time >= $minLimitTime;
-                    });
-                    $matchedTimesCount = count($matchedTimes);
-                    if ($matchedTimesCount + 1 === $limitValue) {
-                        if (is_callable($this->logger)) {
-                            call_user_func($this->logger, $action, $key, $limit);
-                        }
-                    }
-                    if ($matchedTimesCount >= $limitValue) {
-                        $addKey = false;
-                        break;
-                    }
+                }
+                if ($matchedTimesCount >= $limitValue) {
+                    $addKey = false;
+                    break;
                 }
             }
         } else {
