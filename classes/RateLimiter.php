@@ -42,7 +42,7 @@ class RateLimiter
      * 
      * @param string $action The name of the action
      * @param string $key The action key.
-     * @param array $limits The limiting rates. Format: ['10/s', '10/m', '10/h', '10/d', '10/Xs', '10/Xm', '10/Xh', '10/Xd'] for second, minute, hour and day and custom periods (10/20m for example)
+     * @param array $limits The limiting rates. Format: ['10/s', '10/m', '10/h', '10/d', '10/Xs', '10/Xm', '10/Xh', '10/Xd', '10/day', '10/week', '10/month'] for second, minute, hour and day and custom periods (10/20m for example)
      * @return boolean Returns FALSE if one of the limits is reached.
      */
     public function log(string $action, string $key, array $limits): bool
@@ -56,7 +56,13 @@ class RateLimiter
             if (isset($limitParts[0], $limitParts[1]) && is_numeric($limitParts[0])) {
                 $limitValue = (int)$limitParts[0];
                 $limitType = $limitParts[1];
-                if ($limitType === 's') {
+                if ($limitType === 'day') {
+                    $minLimitTime = strtotime('today midnight', $currentTime);
+                } elseif ($limitType === 'week') {
+                    $minLimitTime = strtotime('monday this week midnight', $currentTime);
+                } elseif ($limitType === 'month') {
+                    $minLimitTime = strtotime('first day of this month midnight', $currentTime);
+                } elseif ($limitType === 's') {
                     $minLimitTime = $currentTime - 1;
                 } elseif ($limitType === 'm') {
                     $minLimitTime = $currentTime - 60;
